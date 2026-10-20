@@ -10,17 +10,21 @@
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-      <v-product
-        v-for="item in filteredProducts"
-        :key="item.id"
-        :img-url="item.imageUrl || item.image"
-        :title="item.title"
-        :price="item.price.toLocaleString('ru-RU')"
-      ></v-product>
+      <template v-if="isLoading">
+        <product-skeleton-loader v-for="n in 5" :key="n" />
+      </template>
       
-      <p v-if="filteredProducts.length === 0" class="text-lg text-gray-500 col-span-5">
-        Товары не найдены
-      </p>
+      <template v-else>
+        <v-product
+          v-for="item in filteredProducts"
+          :key="item.id"
+          :product="item"
+        ></v-product>
+        
+        <p v-if="filteredProducts.length === 0" class="text-lg text-gray-500 col-span-5">
+          Товары не найдены
+        </p>
+      </template>
     </div>
   </main>
 </template>
@@ -28,13 +32,17 @@
 <script setup>
 import { onMounted, ref, computed, watch } from "vue";
 import axios from "axios";
-import VProduct from "./VProduct.vue";
-import SearchInput from "./SearchInput.vue";
-import SortSelect from "./SortSelect.vue";
+import VProduct from "../components/VProduct.vue";
+import SearchInput from "../components/SearchInput.vue";
+import SortSelect from "../components/SortSelect.vue";
+import ProductSkeletonLoader from "../components/ProductSkeletonLoader.vue";
 
 const items = ref([]);
+const isLoading = ref(true); // Состояние загрузки
+
 const fetchItems = async () => {
   try {
+    isLoading.value = true;
     const { data } = await axios.get("https://99bd51eed5613d1e.mokky.dev/items");
     items.value = data.map((obj) => ({
       ...obj,
@@ -43,6 +51,8 @@ const fetchItems = async () => {
     }));
   } catch (e) {
     console.log(e);
+  } finally {
+    isLoading.value = false;
   }
 };
 
@@ -67,14 +77,10 @@ watch(sortBy, (newValue) => {
 
 const filteredProducts = computed(() => {
   let result = [...items.value];
-
   if (searchQuery.value.trim() !== "") {
     const query = searchQuery.value.toLowerCase();
-    result = result.filter((product) =>
-      product.title.toLowerCase().includes(query)
-    );
+    result = result.filter((product) => product.title.toLowerCase().includes(query));
   }
-
   if (sortBy.value === "price-asc") {
     result.sort((a, b) => a.price - b.price);
   } else if (sortBy.value === "price-desc") {
@@ -84,7 +90,6 @@ const filteredProducts = computed(() => {
   } else if (sortBy.value === "name-desc") {
     result.sort((a, b) => b.title.localeCompare(a.title, ["ru", "en"], { sensitivity: "base" }));
   }
-
   return result;
 });
 </script>
